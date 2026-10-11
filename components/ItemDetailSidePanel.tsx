@@ -113,6 +113,8 @@ export default function ItemDetailSidePanel({
       if (typeof window !== 'undefined' && targetCourseFile) {
         window.open(targetCourseFile, '_blank', 'noopener,noreferrer')
       }
+    } else if (resolvedType === 'leaderboard' && item.username) {
+      window.location.href = `/profile?u=${item.username}`
     }
   }
 
@@ -134,7 +136,7 @@ export default function ItemDetailSidePanel({
     primaryActionLabel = actionDone ? 'COMM LINK ESTABLISHED' : 'CONTACT OPERATOR'
   } else if (resolvedType === 'leaderboard') {
     typeLabel = 'HUNTER TELEMETRY'
-    primaryActionLabel = actionDone ? 'CHALLENGE ISSUED' : 'CHALLENGE OPERATOR'
+    primaryActionLabel = 'VIEW OPERATIVE DOSSIER'
   } else if (resolvedType === 'quiz') {
     typeLabel = 'CHALLENGE ARENA'
     primaryActionLabel = 'LAUNCH QUIZ'

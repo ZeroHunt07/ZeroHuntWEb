@@ -11,6 +11,7 @@ import {
   HelpCircle,
   Menu,
   RotateCcw,
+  Search,
   Shield,
   Sparkles,
   Trophy,
@@ -22,6 +23,8 @@ import { Button } from '@/components/ui/button'
 import CursorGrid from '@/components/CursorGrid'
 import TechText from '@/components/TechText'
 import ItemDetailSidePanel, { type GenericItemData } from '@/components/ItemDetailSidePanel'
+import GlobalSearchModal from '@/components/GlobalSearchModal'
+import MorphSlider, { type MorphItem } from '@/components/MorphSlider'
 
 interface Question {
   question: string
@@ -61,6 +64,7 @@ export default function QuizzesPage() {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchModalOpen, setSearchModalOpen] = useState(false)
   
   // Active test user
   const [user, setUser] = useState<UserSummary | null>(null)
@@ -80,14 +84,22 @@ export default function QuizzesPage() {
   const [result, setResult] = useState<AttemptResult | null>(null)
 
   useEffect(() => {
-    // Load default user
-    fetch('/api/users')
+    // Load session / active user
+    fetch('/api/auth/me')
       .then((r) => r.json())
-      .then((users: UserSummary[]) => {
-        if (Array.isArray(users) && users.length > 0) {
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setUser(data.user)
+        } else {
           const storedUsername = localStorage.getItem('zh_active_user')
-          const found = users.find((u) => u.username === storedUsername) || users[0]
-          setUser(found)
+          if (storedUsername) {
+            fetch(`/api/users?username=${encodeURIComponent(storedUsername)}`)
+              .then((r) => r.json())
+              .then((u) => {
+                if (u && !u.error) setUser(u)
+              })
+              .catch(() => {})
+          }
         }
       })
       .catch(() => {})
@@ -203,6 +215,16 @@ export default function QuizzesPage() {
                 </span>
               </div>
             )}
+            {/* Global Search trigger */}
+            <button
+              onClick={() => setSearchModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs font-mono transition-all"
+              title="Search hunters, badges, courses..."
+            >
+              <Search size={13} className="text-[#FF4D5E]" />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] rounded bg-white/10 text-white/40">⌘K</kbd>
+            </button>
             <Link href="/profile">
               <Button size="sm" className="bg-[#FF4D5E] text-xs font-bold tracking-[.12em] text-[#071007] hover:bg-[#dcff72]">
                 MY PROFILE
@@ -280,6 +302,45 @@ export default function QuizzesPage() {
             <h2 className="list-heading">AVAILABLE CHALLENGES ({quizzes.length})</h2>
             <span className="list-counter">LIVE DATABASE</span>
           </div>
+
+          {/* MorphSlider interactive WebGL deck for Quizzes */}
+          {quizzes.length > 0 && (() => {
+            const quizMorphImages = [
+              'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=1600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=1600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=1600&auto=format&fit=crop',
+            ]
+            const quizMorphItems: MorphItem[] = quizzes.map((q, i) => ({
+              image: quizMorphImages[i % quizMorphImages.length],
+              title: q.title,
+              subtitle: q.description || 'Test your cybersecurity knowledge and earn live points.',
+              badge: `${q.difficulty.toUpperCase()} PROTOCOL · ${q.passingScore}% PASS`,
+              meta: `+${q.xpReward} XP · 🪙 ${q.creditReward} CREDITS · ${q.questions.length} QUESTIONS`,
+              caption: q.title,
+              onClick: () => startQuiz(q),
+            }))
+
+            return (
+              <div className="mb-10 w-full rounded-2xl overflow-hidden border border-white/15 shadow-[0_0_50px_rgba(255,77,94,0.14)] h-[380px] sm:h-[460px]">
+                <MorphSlider
+                  items={quizMorphItems}
+                  transition="swirl"
+                  intensity={0.65}
+                  scale={2.4}
+                  drift={0.35}
+                  autoplay={true}
+                  autoplayDelay={5}
+                  radius={16}
+                  overlayColor="#070c0e"
+                  showCaptions={true}
+                  showControls={true}
+                  showIndicators={true}
+                  onCardClick={(_, mItem) => mItem.onClick?.()}
+                />
+              </div>
+            )
+          })()}
 
           {loading ? (
             <div className="text-center py-20 text-white/40 font-mono text-sm">
@@ -544,6 +605,11 @@ export default function QuizzesPage() {
             startQuiz(raw)
           }
         }}
+      />
+      {/* Global Search Modal */}
+      <GlobalSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
       />
     </main>
   )

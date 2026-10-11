@@ -54,13 +54,21 @@ export default function StorePage() {
   }
 
   const loadData = () => {
-    fetch('/api/users')
+    fetch('/api/auth/me')
       .then((r) => r.json())
-      .then((users: UserSummary[]) => {
-        if (Array.isArray(users) && users.length > 0) {
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setUser(data.user)
+        } else {
           const storedUsername = localStorage.getItem('zh_active_user')
-          const found = users.find((u) => u.username === storedUsername) || users[0]
-          setUser(found)
+          if (storedUsername) {
+            fetch(`/api/users?username=${encodeURIComponent(storedUsername)}`)
+              .then((r) => r.json())
+              .then((u) => {
+                if (u && !u.error) setUser(u)
+              })
+              .catch(() => {})
+          }
         }
       })
       .catch(() => {})

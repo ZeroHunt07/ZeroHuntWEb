@@ -10,6 +10,7 @@ import {
   Code2,
   Globe2,
   Menu,
+  Search,
   Shield,
   Sparkles,
   Trophy,
@@ -22,6 +23,7 @@ import CircularCarousel, { type CircularCarouselItem } from '@/components/Circul
 import ParticleText from '@/components/ParticleText'
 import TechText from '@/components/TechText'
 import ItemDetailSidePanel, { type GenericItemData } from '@/components/ItemDetailSidePanel'
+import GlobalSearchModal from '@/components/GlobalSearchModal'
 
 /* ─── Types ──────────────────────────────────────────────────────── */
 
@@ -121,6 +123,8 @@ export default function Page() {
   /* XP total across all courses */
   const totalXP = courses.reduce((t, c) => t + c.xpReward, 0)
 
+  const [searchModalOpen, setSearchModalOpen] = useState(false)
+
   const activities = [
     { label: 'QUIZ COMPLETED', title: 'HTTP Methods', points: '+120 XP', icon: Trophy },
     { label: 'LESSON FINISHED', title: 'Linux Permissions', points: '+60 XP', icon: BookOpen },
@@ -152,6 +156,16 @@ export default function Page() {
               <a href="/profile" className="transition hover:text-[#FF4D5E]">PROFILE</a>
             </nav>
             <div className="flex items-center gap-3">
+              {/* Global Search trigger */}
+              <button
+                onClick={() => setSearchModalOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs font-mono transition-all"
+                title="Search hunters, badges, courses..."
+              >
+                <Search size={13} className="text-[#FF4D5E]" />
+                <span className="hidden sm:inline">Search</span>
+                <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] rounded bg-white/10 text-white/40">⌘K</kbd>
+              </button>
               <a href="/sign-in"><Button variant="ghost" className="hidden text-xs tracking-[.16em] text-white/70 hover:bg-white/10 hover:text-white sm:inline-flex">SIGN IN</Button></a>
               <a href="/profile"><Button className="bg-[#FF4D5E] px-5 text-xs font-bold tracking-[.12em] text-[#071007] hover:bg-[#dcff72]">START HUNT <ArrowRight data-icon="inline-end" /></Button></a>
               <button id="home-menu-toggle" className="grid size-10 place-items-center rounded-full border border-white/15 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'}>{menuOpen ? <X /> : <Menu />}</button>
@@ -387,6 +401,12 @@ export default function Page() {
         item={selectedItem}
         itemType={selectedItem?.type || 'general'}
         onClose={() => setSelectedItem(null)}
+      />
+
+      {/* Global Search Modal */}
+      <GlobalSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
       />
     </main>
   )

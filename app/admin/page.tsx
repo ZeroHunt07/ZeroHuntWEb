@@ -98,7 +98,7 @@ export default function AdminPage() {
     const [c, u, q, b, s, l, st] = await Promise.all([
       fetch('/api/courses').then(r => r.json()),
       fetch('/api/users').then(r => r.json()),
-      fetch('/api/quiz').then(r => r.json()),
+      fetch('/api/quiz?admin=true').then(r => r.json()),
       fetch('/api/badges').then(r => r.json()),
       fetch('/api/store').then(r => r.json()),
       fetch('/api/leaderboard?limit=20').then(r => r.json()),
@@ -510,29 +510,222 @@ export default function AdminPage() {
       )}
 
       {/* Add / Edit Quiz */}
-      {(modal === 'addQuiz' || modal === 'editQuiz') && (
-        <Modal title={modal === 'addQuiz' ? 'Add Quiz' : 'Edit Quiz'} onClose={closeModal}>
-          <div className="admin-form-group">
-            <label>Title<input value={fv('title')} onChange={e => setForm({ ...form, title: e.target.value })} /></label>
-            <label>Slug<input value={fv('slug')} onChange={e => setForm({ ...form, slug: e.target.value })} /></label>
-            <label>Description<textarea value={fv('description') as string} onChange={e => setForm({ ...form, description: e.target.value })} /></label>
-            <label>Difficulty
-              <select value={fv('difficulty')} onChange={e => setForm({ ...form, difficulty: e.target.value })}>
-                <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
-              </select>
-            </label>
-            <label>XP Reward<input type="number" value={fv('xpReward')} onChange={e => setForm({ ...form, xpReward: +e.target.value })} /></label>
-            <label>Credit Reward<input type="number" value={fv('creditReward')} onChange={e => setForm({ ...form, creditReward: +e.target.value })} /></label>
-            <label>Passing Score (%)<input type="number" value={fv('passingScore')} onChange={e => setForm({ ...form, passingScore: +e.target.value })} /></label>
-            <label>Time Limit (seconds)<input type="number" value={fv('timeLimit')} onChange={e => setForm({ ...form, timeLimit: +e.target.value })} /></label>
-            <label className="admin-checkbox"><input type="checkbox" checked={!!form.active} onChange={e => setForm({ ...form, active: e.target.checked })} /> Active</label>
-            <p className="text-white/40 text-xs mt-2">💡 Add questions via the API or by editing the quiz after creation.</p>
-          </div>
-          <Button disabled={saving} onClick={() => modal === 'addQuiz' ? save('/api/quiz', 'POST', form) : save(`/api/quiz/${(editing as Quiz)._id}`, 'PATCH', form)} className="bg-[#FF4D5E] w-full font-bold text-[#071007] hover:bg-[#dcff72] mt-4">
-            {saving ? 'Saving…' : 'Save Quiz'}
-          </Button>
-        </Modal>
-      )}
+      {(modal === 'addQuiz' || modal === 'editQuiz') && (() => {
+        type QuestionItem = {
+          question: string
+          options: string[]
+          correctIndex: number
+          explanation?: string
+        }
+        const currentQuestions = (Array.isArray(form.questions) ? form.questions : []) as QuestionItem[]
+
+        const updateQuestions = (newQ: QuestionItem[]) => {
+          setForm({ ...form, questions: newQ })
+        }
+
+        const addQuestion = () => {
+          updateQuestions([
+            ...currentQuestions,
+            {
+              question: '',
+              options: ['Option A', 'Option B', 'Option C', 'Option D'],
+              correctIndex: 0,
+              explanation: '',
+            },
+          ])
+        }
+
+        const removeQuestion = (qIdx: number) => {
+          updateQuestions(currentQuestions.filter((_, i) => i !== qIdx))
+        }
+
+        const updateQuestionField = (qIdx: number, field: keyof QuestionItem, val: unknown) => {
+          const updated = [...currentQuestions]
+          updated[qIdx] = { ...updated[qIdx], [field]: val }
+          updateQuestions(updated)
+        }
+
+        const addOption = (qIdx: number) => {
+          const updated = [...currentQuestions]
+          const opts = [...(updated[qIdx].options || []), `Option ${String.fromCharCode(65 + (updated[qIdx].options?.length || 0))}`]
+          updated[qIdx] = { ...updated[qIdx], options: opts }
+          updateQuestions(updated)
+        }
+
+        const updateOption = (qIdx: number, oIdx: number, val: string) => {
+          const updated = [...currentQuestions]
+          const opts = [...(updated[qIdx].options || [])]
+          opts[oIdx] = val
+          updated[qIdx] = { ...updated[qIdx], options: opts }
+          updateQuestions(updated)
+        }
+
+        const removeOption = (qIdx: number, oIdx: number) => {
+          const updated = [...currentQuestions]
+          const opts = (updated[qIdx].options || []).filter((_, i) => i !== oIdx)
+          let correct = updated[qIdx].correctIndex || 0
+          if (correct >= opts.length) correct = Math.max(0, opts.length - 1)
+          updated[qIdx] = { ...updated[qIdx], options: opts, correctIndex: correct }
+          updateQuestions(updated)
+        }
+
+        const setCorrectOption = (qIdx: number, oIdx: number) => {
+          const updated = [...currentQuestions]
+          updated[qIdx] = { ...updated[qIdx], correctIndex: oIdx }
+          updateQuestions(updated)
+        }
+
+        return (
+          <Modal title={modal === 'addQuiz' ? 'Add Quiz' : 'Edit Quiz'} onClose={closeModal}>
+            <div className="admin-form-group">
+              <label>Title<input value={fv('title')} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Network Penetration Basics" /></label>
+              <label>Slug<input value={fv('slug')} onChange={e => setForm({ ...form, slug: e.target.value })} placeholder="e.g. network-penetration-basics" /></label>
+              <label>Description<textarea value={fv('description') as string} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Quiz summary..." /></label>
+              <label>Difficulty
+                <select value={fv('difficulty')} onChange={e => setForm({ ...form, difficulty: e.target.value })}>
+                  <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label>XP Reward<input type="number" value={fv('xpReward')} onChange={e => setForm({ ...form, xpReward: +e.target.value })} /></label>
+                <label>Credit Reward<input type="number" value={fv('creditReward')} onChange={e => setForm({ ...form, creditReward: +e.target.value })} /></label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label>Passing Score (%)<input type="number" value={fv('passingScore')} onChange={e => setForm({ ...form, passingScore: +e.target.value })} /></label>
+                <label>Time Limit (seconds)<input type="number" value={fv('timeLimit')} onChange={e => setForm({ ...form, timeLimit: +e.target.value })} /></label>
+              </div>
+              <label className="admin-checkbox"><input type="checkbox" checked={!!form.active} onChange={e => setForm({ ...form, active: e.target.checked })} /> Active</label>
+
+              {/* ── Questions and Option Answers Section ── */}
+              <div className="mt-5 border-t border-white/10 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#FF4D5E]">
+                      Questions & Options ({currentQuestions.length})
+                    </h4>
+                    <p className="text-[10px] text-white/40 font-mono">Create questions, options, and choose the correct answer</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={addQuestion}
+                    className="bg-[#FF4D5E]/20 hover:bg-[#FF4D5E]/30 text-[#FF4D5E] border border-[#FF4D5E]/40 text-xs font-mono font-bold h-7 px-2.5"
+                  >
+                    <Plus size={13} className="mr-1" /> Add Question
+                  </Button>
+                </div>
+
+                {currentQuestions.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-white/15 text-center text-xs text-white/40 font-mono bg-white/[0.01]">
+                    No questions created yet. Click &quot;Add Question&quot; above to create quiz questions.
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1">
+                    {currentQuestions.map((q, qIdx) => (
+                      <div key={qIdx} className="p-3.5 rounded-xl border border-white/10 bg-black/40 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-bold text-white flex items-center gap-1.5">
+                            <span className="size-5 rounded bg-[#FF4D5E]/20 text-[#FF4D5E] flex items-center justify-center text-[10px]">
+                              {qIdx + 1}
+                            </span>
+                            Question Prompt
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeQuestion(qIdx)}
+                            className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1 font-mono transition-colors"
+                          >
+                            <Trash2 size={12} /> Remove
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          placeholder="e.g. What is the standard port for HTTPS?"
+                          value={q.question}
+                          onChange={(e) => updateQuestionField(qIdx, 'question', e.target.value)}
+                          className="w-full bg-white/5 border border-white/15 focus:border-[#FF4D5E] rounded-lg px-3 py-1.5 text-xs text-white outline-none font-mono"
+                        />
+
+                        {/* Options */}
+                        <div className="space-y-2 pl-3 border-l-2 border-white/10">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
+                              Option Answers (click circle to set correct):
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => addOption(qIdx)}
+                              className="text-[10px] font-mono text-[#FF4D5E] hover:underline"
+                            >
+                              + Add Option
+                            </button>
+                          </div>
+
+                          {(q.options || []).map((opt, oIdx) => (
+                            <div key={oIdx} className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setCorrectOption(qIdx, oIdx)}
+                                className={`size-6 rounded-full border flex items-center justify-center text-[10px] font-bold shrink-0 transition-all ${
+                                  q.correctIndex === oIdx
+                                    ? 'bg-emerald-500 border-emerald-400 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]'
+                                    : 'border-white/20 text-white/40 hover:border-white/50'
+                                }`}
+                                title={q.correctIndex === oIdx ? 'Correct Answer' : 'Click to select as correct answer'}
+                              >
+                                {q.correctIndex === oIdx ? '✓' : String.fromCharCode(65 + oIdx)}
+                              </button>
+                              <input
+                                type="text"
+                                placeholder={`Option ${String.fromCharCode(65 + oIdx)}`}
+                                value={opt}
+                                onChange={(e) => updateOption(qIdx, oIdx, e.target.value)}
+                                className={`flex-1 bg-white/5 border rounded-lg px-2.5 py-1 text-xs text-white outline-none font-mono transition-colors ${
+                                  q.correctIndex === oIdx
+                                    ? 'border-emerald-500/60 bg-emerald-500/[0.06]'
+                                    : 'border-white/10 focus:border-white/30'
+                                }`}
+                              />
+                              {(q.options || []).length > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeOption(qIdx, oIdx)}
+                                  className="text-white/30 hover:text-red-400 p-1"
+                                  title="Delete option"
+                                >
+                                  <X size={13} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Explanation */}
+                        <div>
+                          <label className="text-[10px] font-mono text-white/40 uppercase block mb-1">
+                            Explanation (shown to learners upon scoring)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. HTTPS default port is 443; HTTP uses port 80."
+                            value={q.explanation || ''}
+                            onChange={(e) => updateQuestionField(qIdx, 'explanation', e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white/80 outline-none focus:border-white/30 font-mono"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <Button disabled={saving} onClick={() => modal === 'addQuiz' ? save('/api/quiz', 'POST', form) : save(`/api/quiz/${(editing as Quiz)._id}`, 'PATCH', form)} className="bg-[#FF4D5E] w-full font-bold text-[#071007] hover:bg-[#dcff72] mt-4">
+              {saving ? 'Saving…' : 'Save Quiz'}
+            </Button>
+          </Modal>
+        )
+      })()}
 
       {/* Edit User */}
       {modal === 'editUser' && editing && (

@@ -10,6 +10,7 @@ import {
   Globe2,
   LockKeyhole,
   Menu,
+  Search,
   Shield,
   Sparkles,
   Target,
@@ -21,6 +22,9 @@ import { Button } from '@/components/ui/button'
 import CursorGrid from '@/components/CursorGrid'
 import TechText from '@/components/TechText'
 import ItemDetailSidePanel, { type GenericItemData } from '@/components/ItemDetailSidePanel'
+import GlobalSearchModal from '@/components/GlobalSearchModal'
+import SignInPage from '@/app/sign-in/page'
+import MorphSlider, { type MorphItem } from '@/components/MorphSlider'
 
 /* ─── Types ───────────────────────────────────────────────────────── */
 
@@ -166,7 +170,7 @@ const PAGE_CONFIG: Record<string, PageConfig> = {
     description: 'Every lesson, quiz, and challenge moves you closer to the top. The leaderboard updates in real time.',
     ctaLabel: 'CREATE YOUR PROFILE',
     ctaHref: '/profile',
-    fetchUrl: '/api/leaderboard?limit=10',
+    fetchUrl: '/api/leaderboard?limit=25',
     iconFn: (i) => [Crown, Trophy, Zap][i % 3] ?? Trophy,
     mapData: (data) =>
       (data as { _id: string; username: string; specialty: string; xp: number; rank: number }[]).map((e) => ({
@@ -244,6 +248,7 @@ function deriveStats(slug: string, data: PageItem[], config: PageConfig) {
 export default function HubPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [items, setItems] = useState<PageItem[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedItem, setSelectedItem] = useState<GenericItemData | null>(null)
@@ -265,30 +270,24 @@ export default function HubPage({ params }: { params: Promise<{ slug: string }> 
       .catch(() => setLoading(false))
   }, [slug]) // eslint-disable-line
 
+  /* live leaderboard polling (updates automatically) */
+  useEffect(() => {
+    if (slug !== 'leaderboard') return
+    const interval = setInterval(() => {
+      fetch('/api/leaderboard?limit=25')
+        .then((r) => r.json())
+        .then((data: unknown) => {
+          const arr = Array.isArray(data) ? data : [data]
+          if (config?.mapData) setItems(config.mapData(arr))
+        })
+        .catch(() => {})
+    }, 7000)
+    return () => clearInterval(interval)
+  }, [slug, config])
+
   /* sign-in page */
   if (slug === 'sign-in') {
-    return (
-      <main className="inner-page">
-        <div className="site-cursor-grid" aria-hidden="true">
-          <CursorGrid cellSize={88} color="#FF4D5E" radius={220} falloff="smooth" fadeDuration={1200} maxOpacity={0.72} gridOpacity={0.045} fillOpacity={0.035} clickPulse />
-        </div>
-        <div className="inner-shell" style={{ maxWidth: '28rem', paddingTop: '3rem' }}>
-          <Link href="/" className="inner-brand" aria-label="Zero Hunt home">
-            <span className="brand-mark"><Shield /></span>ZERO HUNT
-          </Link>
-          <div className="auth-card" style={{ marginTop: '8vh' }}>
-            <p className="inner-kicker">WELCOME BACK, HUNTER</p>
-            <h1 className="auth-title">Sign in<br /><span>to continue.</span></h1>
-            <form className="auth-form">
-              <label>EMAIL<input type="email" placeholder="you@example.com" /></label>
-              <label>PASSWORD<input type="password" placeholder="••••••••" /></label>
-              <Button type="button" className="bg-[#FF4D5E] font-bold tracking-[.13em] text-[#071007] hover:bg-[#dcff72] w-full mt-2">ENTER ZERO HUNT <ArrowRight data-icon="inline-end" /></Button>
-            </form>
-            <p className="auth-note">New here? <Link href="/profile">Create your profile</Link></p>
-          </div>
-        </div>
-      </main>
-    )
+    return <SignInPage />
   }
 
   if (!config) return null
@@ -320,6 +319,16 @@ export default function HubPage({ params }: { params: Promise<{ slug: string }> 
             ))}
           </nav>
           <div className="inner-header-actions">
+            {/* Global Search trigger */}
+            <button
+              onClick={() => setSearchModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs font-mono transition-all"
+              title="Search hunters, badges, courses..."
+            >
+              <Search size={13} className="text-[#FF4D5E]" />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] rounded bg-white/10 text-white/40">⌘K</kbd>
+            </button>
             <Link href="/sign-in"><Button variant="ghost" className="hidden text-xs tracking-[.16em] text-white/70 hover:bg-white/10 hover:text-white sm:inline-flex">SIGN IN</Button></Link>
             <Link href="/profile"><Button className="bg-[#FF4D5E] px-5 text-xs font-bold tracking-[.12em] text-[#071007] hover:bg-[#dcff72]">START HUNT <ArrowRight data-icon="inline-end" /></Button></Link>
             <button id={`menu-${slug}`} className="grid size-10 place-items-center rounded-full border border-white/15 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'}>{menuOpen ? <X /> : <Menu />}</button>
@@ -362,7 +371,58 @@ export default function HubPage({ params }: { params: Promise<{ slug: string }> 
 
         {/* cards */}
         <section className="inner-cards-section scroll-section" data-reveal aria-label={`${config.eyebrow} content`}>
-          <p className="inner-section-label">{config.section}</p>
+          {/* MorphSlider interactive WebGL deck for Academy and Courses */}
+          {(slug === 'courses' || slug === 'academy') && displayItems.length > 0 && (() => {
+            const courseImages = [
+              'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=1600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=1600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=1600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?q=80&w=1600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?q=80&w=1600&auto=format&fit=crop',
+            ]
+            const morphItems: MorphItem[] = displayItems.map((item, idx) => ({
+              image: courseImages[idx % courseImages.length],
+              title: item.title,
+              subtitle: item.copy,
+              badge: `${(item.raw?.level || (slug === 'courses' ? 'OFFENSIVE PATH' : 'METHOD')).toUpperCase()} · 0${idx + 1}`,
+              meta: item.meta,
+              caption: item.title,
+              onClick: () => {
+                setSelectedItem(
+                  item.raw || {
+                    _id: item._id,
+                    title: item.title,
+                    copy: item.copy,
+                    description: item.copy,
+                    type: slug as any,
+                    meta: item.meta,
+                    courseFile: (item.raw as any)?.courseFile || (slug === 'courses' ? `/docs/${item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf` : undefined),
+                  }
+                )
+              },
+            }))
+
+            return (
+              <div className="mb-10 w-full rounded-2xl overflow-hidden border border-white/15 shadow-[0_0_50px_rgba(255,77,94,0.12)] h-[380px] sm:h-[480px]">
+                <MorphSlider
+                  items={morphItems}
+                  transition={slug === 'courses' ? 'melt' : 'ripple'}
+                  intensity={0.65}
+                  scale={2.2}
+                  drift={0.35}
+                  autoplay={true}
+                  autoplayDelay={4.5}
+                  radius={16}
+                  overlayColor="#0a120c"
+                  showCaptions={true}
+                  showControls={true}
+                  showIndicators={true}
+                  onCardClick={(_, mItem) => mItem.onClick?.()}
+                />
+              </div>
+            )
+          })()}
+
           {loading ? (
             <div className="inner-grid">
               {[1, 2, 3].map((n) => (
@@ -456,6 +516,12 @@ export default function HubPage({ params }: { params: Promise<{ slug: string }> 
         item={selectedItem}
         itemType={slug as any}
         onClose={() => setSelectedItem(null)}
+      />
+
+      {/* Global Search Modal */}
+      <GlobalSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
       />
     </main>
   )
