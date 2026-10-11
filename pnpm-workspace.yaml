@@ -1,9 +1,10 @@
+
 pmOnFail: ignore
 
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
-  - '@tailwindcss/oxide'
+allowBuilds:
+  esbuild: true
+  sharp: true
+  '@tailwindcss/oxide': true
 
 minimumReleaseAgeExclude:
   - '@next/*'
