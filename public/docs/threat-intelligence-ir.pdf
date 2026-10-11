@@ -1,0 +1,55 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 656 >>
+stream
+BT
+/F1 24 Tf
+50 720 Td
+(Threat Intelligence & Incident Response) Tj
+/F1 12 Tf
+0 -36 Td
+(Level: Advanced | 17 Lessons | XP: +220) Tj
+0 -24 Td
+(Zero Hunt Academy - Official Security Syllabus & Operational Lab Guide) Tj
+0 -20 Td
+(Module Status: ONLINE & ACTIVE) Tj
+0 -30 Td
+(1. Threat Landscape & Mental Models) Tj
+0 -20 Td
+(2. Core Defensive Principles: CIA Triad & Zero Trust) Tj
+0 -20 Td
+(3. Practical Protocol Analysis & Telemetry) Tj
+0 -20 Td
+(4. Sandboxed Environment Setup & Target Assessment) Tj
+0 -20 Td
+(5. Interactive CTF Flag Capture & Verification) Tj
+0 -40 Td
+(Instructions: Complete each hands-on lab before attempting the arena quizzes.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000236 00000 n 
+0000000956 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1036
+%%EOF
