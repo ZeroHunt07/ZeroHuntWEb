@@ -1,1 +1,0 @@
-mongodb+srv://manankamboj66_db_user:manankamboj2010@cluster0.dcio5tf.mongodb.net/?appName=Cluster0
