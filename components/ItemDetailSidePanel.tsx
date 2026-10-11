@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowRight,
+  Award,
   BookOpen,
   CheckCircle2,
   ChevronRight,
@@ -436,6 +437,25 @@ export default function ItemDetailSidePanel({
                     OPEN FILE <ExternalLink size={12} />
                   </button>
                 </div>
+
+                {resolvedType === 'course' && (
+                  <div className="p-4 rounded-xl bg-gradient-to-r from-[#FF4D5E]/15 via-[#FF4D5E]/5 to-transparent border border-[#FF4D5E]/30 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-lg bg-[#FF4D5E]/10 border border-[#FF4D5E]/30 flex items-center justify-center text-[#FF4D5E]">
+                        <Award size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">Course Certification Exam</h4>
+                        <p className="text-xs text-white/50">Pass with 70%+ to earn verified accreditation</p>
+                      </div>
+                    </div>
+                    <Link href={`/quizzes?course=${item.slug || ''}`}>
+                      <Button size="sm" className="bg-[#FF4D5E] text-[#071007] hover:bg-[#dcff72] font-mono font-bold text-xs">
+                        TAKE EXAM →
+                      </Button>
+                    </Link>
+                  </div>
+                )}
 
                 <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
                   <div className="flex items-center gap-3">

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { connectDB } from '@/lib/db'
-import { Quiz, QuizAttempt, User, CreditTransaction, Badge } from '@/lib/models'
+import { Quiz, QuizAttempt, User, CreditTransaction, Badge, Course, Certificate } from '@/lib/models'
 
-// POST /api/quiz/[id]/attempt — submit answers, score, award XP + credits
+// POST /api/quiz/[id]/attempt — submit answers, score, award XP + credits, issue certificate
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await connectDB()
   const { id } = await params
@@ -25,6 +26,50 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   })
   const score = questionCount > 0 ? Math.round((correct / questionCount) * 100) : 0
   const passed = score >= quiz.passingScore
+
+  // Certificate issuance if passed and course-linked
+  let certificate = null
+  if (passed && quiz.courseRef) {
+    const course = await Course.findOne({ slug: quiz.courseRef })
+    if (course && !user.completedCourses.includes(quiz.courseRef)) {
+      user.completedCourses.push(quiz.courseRef)
+    }
+
+    let existingCert = await Certificate.findOne({ userId: user._id.toString(), courseSlug: quiz.courseRef })
+    const grade = score >= 90 ? 'Distinction' : score >= 80 ? 'Proficient' : 'Certified'
+
+    if (!existingCert) {
+      const prefix = (quiz.courseRef.split('-')[0] || 'CERT').substring(0, 4).toUpperCase()
+      const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase()
+      const certificateId = `ZH-CERT-${prefix}-${randomSuffix}`
+      const signature = crypto.createHash('sha256').update(`${certificateId}:${user.username}:${score}:${Date.now()}`).digest('hex').substring(0, 24).toUpperCase()
+
+      existingCert = await Certificate.create({
+        certificateId,
+        userId: user._id.toString(),
+        username: user.username,
+        userDisplayName: user.displayName || user.username,
+        courseSlug: quiz.courseRef,
+        courseTitle: course ? course.title : quiz.title,
+        quizId: quiz._id.toString(),
+        quizTitle: quiz.title,
+        score,
+        grade,
+        issuedAt: new Date(),
+        signature,
+      })
+
+      if (!user.certificates) user.certificates = []
+      if (!user.certificates.includes(certificateId)) {
+        user.certificates.push(certificateId)
+      }
+    } else if (score > existingCert.score) {
+      existingCert.score = score
+      existingCert.grade = grade
+      await existingCert.save()
+    }
+    certificate = existingCert
+  }
 
   // Award XP + credits only on first pass
   let xpEarned = 0
@@ -61,7 +106,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     await user.save()
     await Quiz.findByIdAndUpdate(id, { $inc: { attemptCount: 1 } })
-  } else if (!passed) {
+  } else {
+    if (passed) {
+      await user.save()
+    }
     await Quiz.findByIdAndUpdate(id, { $inc: { attemptCount: 1 } })
   }
 
@@ -76,5 +124,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     newXP: user.xp, newCredits: user.credits,
     newBadges: user.badges,
     attemptId: attempt._id,
+    certificate,
   })
 }

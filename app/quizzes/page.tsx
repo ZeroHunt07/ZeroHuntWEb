@@ -25,6 +25,7 @@ import TechText from '@/components/TechText'
 import ItemDetailSidePanel, { type GenericItemData } from '@/components/ItemDetailSidePanel'
 import GlobalSearchModal from '@/components/GlobalSearchModal'
 import MorphSlider, { type MorphItem } from '@/components/MorphSlider'
+import { CertificateModal, type CertificateData } from '@/components/CertificateModal'
 
 interface Question {
   question: string
@@ -36,6 +37,7 @@ interface Quiz {
   _id: string
   title: string
   slug: string
+  courseRef?: string
   description: string
   difficulty: 'easy' | 'medium' | 'hard'
   questions: Question[]
@@ -68,6 +70,8 @@ export default function QuizzesPage() {
   
   // Active test user
   const [user, setUser] = useState<UserSummary | null>(null)
+  const [viewingCertificate, setViewingCertificate] = useState<CertificateData | null>(null)
+  const [userCertificates, setUserCertificates] = useState<CertificateData[]>([])
   
   // Results modal state
   interface AttemptResult {
@@ -80,6 +84,7 @@ export default function QuizzesPage() {
     newXP: number
     newCredits: number
     newBadges: string[]
+    certificate?: CertificateData | null
   }
   const [result, setResult] = useState<AttemptResult | null>(null)
 
@@ -90,13 +95,27 @@ export default function QuizzesPage() {
       .then((data) => {
         if (data.authenticated && data.user) {
           setUser(data.user)
+          fetch(`/api/certificates?userId=${data.user._id}`)
+            .then((res) => res.json())
+            .then((certs) => {
+              if (Array.isArray(certs)) setUserCertificates(certs)
+            })
+            .catch(() => {})
         } else {
           const storedUsername = localStorage.getItem('zh_active_user')
           if (storedUsername) {
             fetch(`/api/users?username=${encodeURIComponent(storedUsername)}`)
               .then((r) => r.json())
               .then((u) => {
-                if (u && !u.error) setUser(u)
+                if (u && !u.error) {
+                  setUser(u)
+                  fetch(`/api/certificates?userId=${u._id}`)
+                    .then((res) => res.json())
+                    .then((certs) => {
+                      if (Array.isArray(certs)) setUserCertificates(certs)
+                    })
+                    .catch(() => {})
+                }
               })
               .catch(() => {})
           }
@@ -111,6 +130,19 @@ export default function QuizzesPage() {
         const list = Array.isArray(data) ? data : data.quizzes || []
         setQuizzes(list)
         setLoading(false)
+
+        if (typeof window !== 'undefined') {
+          const courseParam = new URLSearchParams(window.location.search).get('course')
+          if (courseParam) {
+            const matched = list.find((q: Quiz) => q.courseRef === courseParam)
+            if (matched) {
+              setActiveQuiz(matched)
+              setSelectedAnswers({})
+              setCurrentQuestionIdx(0)
+              setResult(null)
+            }
+          }
+        }
       })
       .catch(() => setLoading(false))
   }, [])
@@ -151,6 +183,9 @@ export default function QuizzesPage() {
       const data = await res.json()
       if (res.ok) {
         setResult(data)
+        if (data.certificate) {
+          setUserCertificates((prev) => [data.certificate, ...prev.filter((c) => c.certificateId !== data.certificate.certificateId)])
+        }
         setUser((prev) =>
           prev
             ? {
@@ -372,9 +407,16 @@ export default function QuizzesPage() {
                       <span className="card-icon-shell">
                         <Award size={18} />
                       </span>
-                      <span className="card-meta">
-                        {quiz.difficulty.toUpperCase()} · {quiz.questions.length} QUESTIONS
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {quiz.courseRef && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#FF4D5E]/10 border border-[#FF4D5E]/30 text-[#FF4D5E] font-semibold">
+                            ACCREDITATION
+                          </span>
+                        )}
+                        <span className="card-meta">
+                          {quiz.difficulty.toUpperCase()} · {quiz.questions.length} QUESTIONS
+                        </span>
+                      </div>
                     </div>
                     <h3 className="card-title text-xl font-bold mt-4 group-hover:text-[#FF4D5E] transition-colors">{quiz.title}</h3>
                     <p className="card-copy mt-2 text-white/60 text-sm leading-relaxed">
@@ -387,12 +429,30 @@ export default function QuizzesPage() {
                       <span className="text-[#FF4D5E]">+{quiz.xpReward} XP</span>
                       <span className="text-amber-400">+{quiz.creditReward} CREDITS</span>
                     </div>
-                    <Button
-                      onClick={() => startQuiz(quiz)}
-                      className="bg-[#FF4D5E] text-[#071007] font-bold text-xs hover:bg-[#dcff72]"
-                    >
-                      TAKE QUIZ
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const earnedCert = userCertificates.find((c) => c.courseSlug === quiz.courseRef)
+                        if (earnedCert) {
+                          return (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setViewingCertificate(earnedCert)}
+                              className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 text-xs font-mono gap-1 h-8"
+                            >
+                              <Award size={12} /> CERTIFIED
+                            </Button>
+                          )
+                        }
+                        return null
+                      })()}
+                      <Button
+                        onClick={() => startQuiz(quiz)}
+                        className="bg-[#FF4D5E] text-[#071007] font-bold text-xs hover:bg-[#dcff72] h-8"
+                      >
+                        TAKE QUIZ
+                      </Button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -538,6 +598,36 @@ export default function QuizzesPage() {
                     </div>
                   )}
 
+                  {/* Certificate celebration banner */}
+                  {result.certificate && (
+                    <div className="my-6 p-4 rounded-xl bg-gradient-to-r from-[#FF4D5E]/20 via-[#FF4D5E]/10 to-transparent border border-[#FF4D5E]/40 text-left">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="size-11 rounded-lg bg-[#FF4D5E] text-[#071007] flex items-center justify-center font-bold shrink-0">
+                            <Award size={24} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-mono tracking-widest text-[#FF4D5E] uppercase block font-bold">
+                              CERTIFICATE OF COMPLETION AWARDED!
+                            </span>
+                            <h4 className="text-sm font-bold text-white">
+                              {result.certificate.courseTitle}
+                            </h4>
+                            <span className="text-[11px] font-mono text-white/50">
+                              ID: {result.certificate.certificateId} • Grade: {result.certificate.grade}
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => setViewingCertificate(result.certificate || null)}
+                          className="bg-[#FF4D5E] text-[#071007] hover:bg-[#dcff72] text-xs font-mono font-bold shrink-0 gap-1.5"
+                        >
+                          <Award size={13} /> VIEW CREDENTIAL
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Badges won */}
                   {result.newBadges && result.newBadges.length > 0 && (
                     <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
@@ -610,6 +700,13 @@ export default function QuizzesPage() {
       <GlobalSearchModal
         isOpen={searchModalOpen}
         onClose={() => setSearchModalOpen(false)}
+      />
+
+      {/* Verified Certificate Modal */}
+      <CertificateModal
+        certificate={viewingCertificate}
+        isOpen={!!viewingCertificate}
+        onClose={() => setViewingCertificate(null)}
       />
     </main>
   )

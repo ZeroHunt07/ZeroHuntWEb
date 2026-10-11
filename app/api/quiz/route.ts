@@ -1,11 +1,28 @@
 import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { Quiz } from '@/lib/models'
+import { ALL_COURSE_QUIZZES } from '@/lib/courseQuizzes'
+
+async function ensureCourseQuizzes() {
+  try {
+    for (const q of ALL_COURSE_QUIZZES) {
+      const exists = await Quiz.findOne({
+        $or: [{ slug: q.slug }, { courseRef: q.courseRef }]
+      })
+      if (!exists) {
+        await Quiz.create(q)
+      }
+    }
+  } catch {
+    // Non-fatal if concurrent insert happens
+  }
+}
 
 // GET /api/quiz — list all quizzes (admin sees full questions + answers)
 export async function GET(req: Request) {
   try {
     await connectDB()
+    await ensureCourseQuizzes()
     const { searchParams } = new URL(req.url)
     const courseRef = searchParams.get('course')
     const isAdmin = searchParams.get('admin') === 'true'

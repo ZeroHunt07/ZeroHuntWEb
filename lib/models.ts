@@ -76,7 +76,7 @@ export interface IUser extends Document {
   xp: number; credits: number; globalRank: number
   streak: number; lastActive: Date
   badges: string[]; completedCourses: string[]; completedQuizzes: string[]
-  ownedItems: string[]
+  ownedItems: string[]; certificates: string[]
   settings: { emailNotifications: boolean; publicProfile: boolean; theme: string }
   createdAt: Date; updatedAt: Date
 }
@@ -90,7 +90,7 @@ const UserSchema = new Schema<IUser>({
   globalRank: { type: Number, default: 0 }, streak: { type: Number, default: 0 },
   lastActive: { type: Date, default: Date.now },
   badges: [String], completedCourses: [String], completedQuizzes: [String],
-  ownedItems: [String],
+  ownedItems: [String], certificates: [String],
   settings: {
     emailNotifications: { type: Boolean, default: true },
     publicProfile: { type: Boolean, default: true },
@@ -256,6 +256,40 @@ const AdminUserSchema = new Schema<IAdminUser>({
 }, { timestamps: true })
 
 /* ══════════════════════════════════════════════════════════════
+   CERTIFICATE
+══════════════════════════════════════════════════════════════ */
+export interface ICertificate extends Document {
+  certificateId: string
+  userId: string
+  username: string
+  userDisplayName: string
+  courseSlug: string
+  courseTitle: string
+  quizId: string
+  quizTitle: string
+  score: number
+  grade: 'Distinction' | 'Proficient' | 'Certified'
+  issuedAt: Date
+  signature: string
+  createdAt: Date
+  updatedAt: Date
+}
+const CertificateSchema = new Schema<ICertificate>({
+  certificateId: { type: String, required: true, unique: true },
+  userId: { type: String, required: true },
+  username: { type: String, required: true },
+  userDisplayName: { type: String, default: '' },
+  courseSlug: { type: String, required: true },
+  courseTitle: { type: String, required: true },
+  quizId: { type: String, required: true },
+  quizTitle: { type: String, required: true },
+  score: { type: Number, required: true },
+  grade: { type: String, enum: ['Distinction', 'Proficient', 'Certified'], default: 'Certified' },
+  issuedAt: { type: Date, default: Date.now },
+  signature: { type: String, required: true },
+}, { timestamps: true })
+
+/* ══════════════════════════════════════════════════════════════
    EXPORTS
 ══════════════════════════════════════════════════════════════ */
 export const Course            = models.Course            || model('Course', CourseSchema)
@@ -264,6 +298,7 @@ export const StoreItem         = models.StoreItem         || model('StoreItem', 
 export const User              = models.User              || model('User', UserSchema)
 export const Quiz              = models.Quiz              || model('Quiz', QuizSchema)
 export const QuizAttempt       = models.QuizAttempt       || model('QuizAttempt', QuizAttemptSchema)
+export const Certificate       = models.Certificate       || model('Certificate', CertificateSchema)
 export const CreditTransaction = models.CreditTransaction || model('CreditTransaction', CreditTransactionSchema)
 export const TeamMember        = models.TeamMember        || model('TeamMember', TeamMemberSchema)
 export const LeaderboardEntry  = models.LeaderboardEntry  || model('LeaderboardEntry', LeaderboardEntrySchema)

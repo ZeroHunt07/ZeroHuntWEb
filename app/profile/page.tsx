@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Award,
   ChevronRight,
+  ExternalLink,
   Flame,
   Globe2,
   Lock,
@@ -27,6 +28,7 @@ import CursorGrid from '@/components/CursorGrid'
 import TechText from '@/components/TechText'
 import ItemDetailSidePanel, { type GenericItemData } from '@/components/ItemDetailSidePanel'
 import GlobalSearchModal from '@/components/GlobalSearchModal'
+import { CertificateModal, type CertificateData } from '@/components/CertificateModal'
 
 interface Badge {
   _id: string
@@ -83,7 +85,9 @@ function ProfileContent() {
   const [toast, setToast] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchModalOpen, setSearchModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'badges' | 'settings'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'certificates' | 'badges' | 'settings'>('overview')
+  const [userCertificates, setUserCertificates] = useState<CertificateData[]>([])
+  const [viewingCertificate, setViewingCertificate] = useState<CertificateData | null>(null)
 
   // Edit form state (only for own profile)
   const [displayName, setDisplayName] = useState('')
@@ -145,25 +149,42 @@ function ProfileContent() {
       if (Array.isArray(badgesRes)) setAllBadges(badgesRes)
 
       // 3. Determine which user's profile to display
+      let displayedUser: UserProfile | null = null
       if (viewUsername) {
         // Viewing someone else's public dossier
         const targetRes = await fetch(`/api/users?username=${encodeURIComponent(viewUsername)}`)
         if (targetRes.ok) {
           const target = await targetRes.json()
+          displayedUser = target
           setProfileUser(target)
           setActiveTab('overview')
         } else {
           showToast(`Hunter @${viewUsername} not found.`)
+          displayedUser = authedUser
           setProfileUser(authedUser)
         }
       } else {
         // Viewing own profile
+        displayedUser = authedUser
         setProfileUser(authedUser)
         if (authedUser) {
           setDisplayName(authedUser.displayName || authedUser.username)
           setBio(authedUser.bio || '')
           setNotifications(authedUser.settings?.emailNotifications ?? true)
           setPublicProfile(authedUser.settings?.publicProfile ?? true)
+        }
+      }
+
+      // 4. Fetch user's verified certificates
+      if (displayedUser?._id) {
+        try {
+          const certRes = await fetch(`/api/certificates?userId=${displayedUser._id}`)
+          if (certRes.ok) {
+            const certs = await certRes.json()
+            if (Array.isArray(certs)) setUserCertificates(certs)
+          }
+        } catch {
+          // ignore
         }
       }
     } finally {
@@ -733,21 +754,23 @@ function ProfileContent() {
             </section>
 
             {/* Tab Controls */}
-            <div className="flex gap-4 border-b border-white/10 mb-8 pb-3">
+            <div className="flex gap-4 border-b border-white/10 mb-8 pb-3 overflow-x-auto no-scrollbar">
               {(isOwnProfile
-                ? (['overview', 'badges', 'settings'] as const)
-                : (['overview', 'badges'] as const)
+                ? (['overview', 'certificates', 'badges', 'settings'] as const)
+                : (['overview', 'certificates', 'badges'] as const)
               ).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`text-xs font-mono uppercase tracking-widest pb-1 transition-all ${
+                  className={`text-xs font-mono uppercase tracking-widest pb-1 transition-all whitespace-nowrap ${
                     activeTab === tab
                       ? 'text-[#FF4D5E] border-b-2 border-[#FF4D5E] font-bold'
                       : 'text-white/50 hover:text-white'
                   }`}
                 >
-                  {tab === 'badges'
+                  {tab === 'certificates'
+                    ? `CERTIFICATES (${userCertificates.length})`
+                    : tab === 'badges'
                     ? `BADGES & AWARDS (${profileUser.badges?.length ?? 0}/${allBadges.length || 0})`
                     : tab === 'overview'
                     ? 'OVERVIEW & ACTIVITY'
@@ -823,6 +846,103 @@ function ProfileContent() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* TAB: CERTIFICATES */}
+            {activeTab === 'certificates' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                    VERIFIED ACADEMY ACCREDITATIONS
+                  </h3>
+                  <p className="text-xs text-white/50 font-mono mt-1">
+                    Official Certificates of Completion issued by Zero Hunt Directorate upon passing course examinations.
+                  </p>
+                </div>
+
+                {userCertificates.length === 0 ? (
+                  <div className="p-12 rounded-2xl border border-white/10 bg-white/[0.02] text-center max-w-lg mx-auto">
+                    <div className="size-16 rounded-2xl bg-[#FF4D5E]/10 border border-[#FF4D5E]/30 text-[#FF4D5E] flex items-center justify-center mx-auto mb-4">
+                      <Award size={32} />
+                    </div>
+                    <h4 className="text-base font-bold text-white uppercase font-mono">
+                      NO CERTIFICATES EARNED YET
+                    </h4>
+                    <p className="text-xs text-white/50 mt-2 font-mono leading-relaxed">
+                      Complete academy courses and pass each certification exam with a score of 70% or higher to unlock cryptographically verified credentials.
+                    </p>
+                    <Link href="/quizzes" className="inline-block mt-6">
+                      <Button size="sm" className="bg-[#FF4D5E] text-[#071007] hover:bg-[#dcff72] font-mono font-bold text-xs gap-1.5">
+                        <Award size={14} /> EXPLORE CERTIFICATION QUIZZES
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {userCertificates.map((cert) => (
+                      <div
+                        key={cert.certificateId}
+                        className="p-6 rounded-2xl border border-[#FF4D5E]/30 bg-gradient-to-br from-[#FF4D5E]/10 via-black/40 to-black/60 relative overflow-hidden group hover:border-[#FF4D5E] transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="size-11 rounded-xl bg-[#FF4D5E]/20 border border-[#FF4D5E]/40 text-[#FF4D5E] flex items-center justify-center">
+                              <Award size={22} />
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-mono tracking-widest text-[#FF4D5E] uppercase block font-bold">
+                                VERIFIED CREDENTIAL
+                              </span>
+                              <h4 className="text-base font-bold text-white group-hover:text-[#FF4D5E] transition-colors">
+                                {cert.courseTitle}
+                              </h4>
+                            </div>
+                          </div>
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold shrink-0">
+                            SCORE {cert.score}%
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 py-3 border-y border-white/10 text-center text-xs font-mono mb-4">
+                          <div>
+                            <span className="text-[10px] text-white/40 block">GRADE</span>
+                            <span className="text-white font-bold">{cert.grade}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-white/40 block">ISSUED</span>
+                            <span className="text-white">
+                              {new Date(cert.issuedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-white/40 block">REGISTRY ID</span>
+                            <span className="text-[#FF4D5E] font-bold text-[11px] truncate block">{cert.certificateId}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            onClick={() => setViewingCertificate(cert)}
+                            className="bg-[#FF4D5E] text-[#071007] hover:bg-[#dcff72] text-xs font-mono font-bold flex-1 gap-1.5"
+                          >
+                            <Award size={13} /> VIEW CREDENTIAL
+                          </Button>
+                          <Link href={`/certificates/${cert.certificateId}`} target="_blank">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-white/10 text-white hover:bg-white/10 text-xs font-mono gap-1"
+                            >
+                              <ExternalLink size={13} /> VERIFY
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -974,6 +1094,13 @@ function ProfileContent() {
           onClose={() => setSelectedBadgeDetail(null)}
         />
       )}
+
+      {/* Official Certificate Modal */}
+      <CertificateModal
+        certificate={viewingCertificate}
+        isOpen={!!viewingCertificate}
+        onClose={() => setViewingCertificate(null)}
+      />
     </main>
   )
 }

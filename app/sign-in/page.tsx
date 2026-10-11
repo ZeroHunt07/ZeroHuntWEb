@@ -139,7 +139,7 @@ export default function SignInPage() {
         />
       </div>
 
-      <div className="inner-shell" style={{ maxWidth: '32rem', paddingTop: '2.5rem', paddingBottom: '3rem' }}>
+      <div className="inner-shell" style={{ maxWidth: '34rem', paddingTop: '2.5rem', paddingBottom: '3rem' }}>
         <div className="flex items-center justify-between mb-8">
           <Link href="/" className="inner-brand" aria-label="Zero Hunt home">
             <span className="brand-mark">
@@ -216,19 +216,19 @@ export default function SignInPage() {
               </button>
             </div>
 
-            <p className="inner-kicker">
+            <p className="inner-kicker text-[#FF4D5E] font-mono tracking-widest text-[0.7rem]">
               {tab === 'signin' ? 'AUTHENTICATION PROTOCOL' : 'NEW OPERATIVE DOSSIER'}
             </p>
-            <h1 className="auth-title text-2xl font-bold text-white mt-1">
+            <h1 className="auth-title font-black uppercase text-white mt-1.5">
               {tab === 'signin' ? (
                 <>
-                  Enter Zero Hunt<br />
-                  <span className="text-[#FF4D5E]">Access terminal.</span>
+                  Enter Zero Hunt
+                  <span className="text-[#FF4D5E]">Access Terminal</span>
                 </>
               ) : (
                 <>
-                  Register Hunter<br />
-                  <span className="text-[#FF4D5E]">Claim identity.</span>
+                  Register Hunter
+                  <span className="text-[#FF4D5E]">Claim Identity</span>
                 </>
               )}
             </h1>
